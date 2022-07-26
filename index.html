@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+    <html>
+        <head>
+            <title>SG PSI Info</title>
+
+            <!-- Viewport for responsive web design -->
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+
+            <!-- D3.js import --> 
+            <script src="https://d3js.org/d3.v7.min.js"></script>
+
+            <!-- Jquery import -->
+            <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+            <!-- Bootstrap CSS import -->
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+            <!-- Leaflet CSS import -->
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.8.0/leaflet.css" />
+
+            <!-- CSS Google fonts import -->
+            <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+
+            <!-- CSS style sheet -->
+            <style>
+                body {
+                    background-image: url("https://static.vecteezy.com/system/resources/previews/002/170/925/non_2x/singapore-downtown-skyline-bay-area-free-photo.jpg");
+                    background-position: center;
+                    background-repeat: no-repeat;
+                    background-attachment: fixed;
+                    background-size: cover;
+                }
+
+                h1 {
+                    color: lightskyblue;
+                    font-size: 50px;
+                    text-align: center;
+                    font-family: 'Roboto', sans-serif;
+                }
+
+                .header {
+                    background: black;
+                    opacity: 80%;
+                }
+
+                #map {
+                    width: auto;
+                    height: 600px;
+                }
+
+                .icon-text {
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+
+    <body>
+        <div class="header">
+            <h1>Singapore PSI Information</h1>
+        </div>
+
+        <script>
+            $.ajax({
+                url: 'https://api.data.gov.sg/v1/environment/psi',
+                success: function (data) {
+                    //Retrieve API data
+                    let region_metadata = data.region_metadata;
+                    let readings = data.items[0].readings.psi_twenty_four_hourly;
+                    let timestamp = data.items[0].update_timestamp;
+
+                    //Format timestamp to readable format based on system locale and display timestamp
+                    let formatted_timestamp = new Date(timestamp).toLocaleString('en-SG');
+                    document.getElementById("timestamp").innerHTML = "Last updated on: " + formatted_timestamp;
+
+                    //Define the domain and colors for use with color scale
+                    let psiDomain = [51, 101, 201, 301];
+                    let psiColors = ["limegreen", "steelblue", "gold", "orange", "crimson"];
+
+                    //Define color scale
+                    let psiScale = d3.scaleThreshold()
+                        .domain(psiDomain)
+                        .range(psiColors);
+
+                    //Define map tiles based on SLA's OneMap
+                    let tiles = new L.tileLayer('https://maps-{s}.onemap.sg/v3/Default/{z}/{x}/{y}.png', {
+                        detectRetina: true,
+                        maxZoom: 18,
+                        minZoom: 11,
+                        //Do not remove this attribution
+                        attribution: '<img src="https://docs.onemap.sg/maps/images/oneMap64-01.png" style="height:20px;width:20px;">' +
+                            'New OneMap | Map data © contributors, <a href="http://SLA.gov.sg">Singapore Land Authority</a>'
+                    });
+
+                    //Add map
+                    let map = new L.Map("map", {
+                        center: [1.347833, 103.809357],
+                        zoom: 12,
+                        maxBounds: L.latLngBounds(L.latLng(1.1, 103.5), L.latLng(1.5, 104.3))
+                    })
+                    .addLayer(tiles);
+
+                //Add circles containing PSI reading for all regions to map
+                region_metadata.forEach(function(d) {
+                    //Obtain the lat and long as well as the PSI reading for the region
+                    var lat = d.label_location.latitude
+                    var long = d.label_location.longitude
+                    var psiReading = readings[d.name]
+                    
+                    //Define and add circle to map
+                    var circle = L.circleMarker([lat, long], {
+                        color: psiScale(psiReading),
+                        fillOpacity: 0.5,
+                        radius: psiReading * 0.75,
+                    })
+                    .addTo(map);
+
+                    //Define icon to contain the PSI reading
+                    var icon = L.divIcon({
+                        className: 'icon-text',
+                        html: psiReading,
+                    });
+                    
+                    //Add icon containing PSI reading to circle
+                    var marker = L.marker([lat, long], {
+                        icon: icon
+                    })
+                    .addTo(map);
+                });
+            }
+        });
+        </script>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.8.0/leaflet.js"></script>
+        <div class="flex-container text-center">
+            <h5>Latest Pollutant Standards Index (PSI) Information from National Environment Agency, Singapore</h5>
+            <p id="timestamp">Timestamp</p>
+        </div>
+
+        <div class="container">
+            <div id="map"></div>
+        </div>
+    </body>
+</html>
